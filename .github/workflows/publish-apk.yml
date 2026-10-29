@@ -1,0 +1,28 @@
+name: Publish verified APK download
+on:
+  push:
+    branches: [master]
+    paths: ['.github/workflows/publish-apk.yml']
+  workflow_dispatch:
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wasla-android-apk
+          path: artifacts
+          run-id: 40860326942
+          github-token: ${{ github.token }}
+      - name: Check verified APK checksum
+        working-directory: artifacts
+        run: sha256sum -c SHA256SUMS.txt
+      - name: Publish APK installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create wasla-v1.0.0 artifacts/wasla-v1.0.0.apk artifacts/SHA256SUMS.txt artifacts/signature-verification.txt artifacts/package-info.txt --repo "${GITHUB_REPOSITORY}" --target ac96e4d7329868d02a8bef263f37b679542b5e3a --prerelease --title "Wasla Android 1.0.0 (test build)" --notes "Debug-signed Android client for Android 8+. Signature and package verification passed. Configure a deployed HTTPS Wasla backend to use login accounts; this APK does not deploy a server or contain passwords. Physical-device testing has not been performed."
