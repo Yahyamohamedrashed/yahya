@@ -1,0 +1,40 @@
+name: Build and verify Wasla APK
+on:
+  push:
+    branches: [master]
+    paths: ['android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Install Android build tools
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Compile signed APK
+        run: gradle -p android --no-daemon assembleDebug
+      - name: Verify signature and package
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/wasla-v1.0.0.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs artifacts/wasla-v1.0.0.apk > artifacts/signature-verification.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging artifacts/wasla-v1.0.0.apk > artifacts/package-info.txt
+          cd artifacts
+          sha256sum wasla-v1.0.0.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wasla-android-apk
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
